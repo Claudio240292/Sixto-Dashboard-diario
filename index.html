@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Sixto Café · Cierre de caja</title>
+<style>
+  /* ====== CONFIGURA AQUÍ ====== */
+  /* La URL del Apps Script va en el <script> más abajo (SCRIPT_URL) */
+  :root{
+    --red:#9e1b1e; --red-dark:#7a1316; --red-soft:#f7e9e9;
+    --ink:#2a2222; --muted:#7a6f6f; --line:#e6dcdc; --bg:#faf6f3; --card:#fff;
+    --ok:#2e7d4f; --warn:#b26a00;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:Georgia,'Times New Roman',serif;font-size:16px;-webkit-text-size-adjust:100%}
+  header{background:var(--red);color:#fff;padding:18px 16px 14px;text-align:center;position:sticky;top:0;z-index:5;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+  header h1{margin:0;font-family:Verdana,Geneva,sans-serif;font-weight:bold;font-size:24px;letter-spacing:.5px}
+  header p{margin:4px 0 0;font-size:14px;opacity:.9}
+  main{max-width:760px;margin:0 auto;padding:16px 16px 120px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+  .card h2{margin:0 0 12px;font-family:Verdana,Geneva,sans-serif;font-size:15px;color:var(--red);text-transform:uppercase;letter-spacing:.6px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+  @media(max-width:560px){.grid,.grid3{grid-template-columns:1fr}}
+  label{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+  input,select,textarea{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;font-family:inherit;font-size:16px;background:#fff;color:var(--ink)}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--red-soft);border-color:var(--red)}
+  .money{position:relative}
+  .money span{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted)}
+  .money input{padding-left:24px;text-align:right}
+  .hint{font-size:13px;color:var(--muted);margin-top:8px}
+  .check{font-size:14px;margin-top:10px;padding:8px 10px;border-radius:8px}
+  .check.ok{background:#e8f4ec;color:var(--ok)}
+  .check.warn{background:#fff3e0;color:var(--warn)}
+  .rows .row{display:grid;grid-template-columns:1fr 120px 140px 64px 32px;gap:8px;align-items:center;margin-bottom:8px}
+  .rows .row input,.rows .row select{padding:10px}
+  @media(max-width:560px){
+    .rows .row{grid-template-columns:1fr 1fr 56px 28px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+    .rows .row .g-concepto{grid-column:1/-1}
+  }
+  .fac{display:flex;align-items:center;justify-content:center;gap:4px;font-size:12px;color:var(--muted)}
+  .fac input{width:18px;height:18px;padding:0}
+  .del{border:none;background:none;color:var(--red);font-size:22px;cursor:pointer;line-height:1}
+  .rows-head{display:grid;grid-template-columns:1fr 120px 140px 64px 32px;gap:8px;font-size:12px;color:var(--muted);margin-bottom:4px}
+  @media(max-width:560px){.rows-head{display:none}}
+  .add{background:none;border:1px dashed var(--red);color:var(--red);border-radius:10px;padding:10px;width:100%;font-family:inherit;font-size:15px;cursor:pointer}
+  .subtotal{display:flex;justify-content:space-between;margin-top:10px;font-weight:bold}
+  table.res{width:100%;border-collapse:collapse;font-size:15px}
+  table.res td{padding:7px 0;border-bottom:1px solid var(--line)}
+  table.res td:last-child{text-align:right;font-variant-numeric:tabular-nums}
+  table.res tr.total td{font-weight:bold;border-bottom:none;border-top:2px solid var(--ink);padding-top:10px}
+  table.res tr.sub td{color:var(--muted);font-size:13px}
+  .tax-box{background:var(--red-soft);border-radius:10px;padding:12px;margin-top:12px}
+  .bar{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);padding:12px 16px calc(12px + env(safe-area-inset-bottom));display:flex;gap:10px;justify-content:center;z-index:6}
+  .bar button{flex:1;max-width:360px;padding:15px;border-radius:12px;font-family:Verdana,Geneva,sans-serif;font-size:16px;font-weight:bold;cursor:pointer;border:none}
+  .btn-sec{background:#fff;border:1px solid var(--line)!important;color:var(--ink)}
+  .btn-pri{background:var(--red);color:#fff}
+  .btn-pri:disabled{opacity:.5}
+  .toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 18px;border-radius:10px;font-size:15px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:20;max-width:90vw;text-align:center}
+  .toast.show{opacity:1}
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:30;padding:16px}
+  .modal-bg.show{display:flex}
+  .modal{background:#fff;border-radius:16px;max-width:520px;width:100%;max-height:85vh;overflow:auto;padding:20px}
+  .modal h3{margin:0 0 10px;font-family:Verdana,Geneva,sans-serif;color:var(--red)}
+  .modal .actions{display:flex;gap:10px;margin-top:16px}
+  .modal .actions button{flex:1;padding:13px;border-radius:10px;font-size:15px;font-family:Verdana,Geneva,sans-serif;font-weight:bold;cursor:pointer;border:none}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Sixto Café</h1>
+  <p>Cierre de caja / turno</p>
+</header>
+
+<main>
+
+  <!-- 1. DATOS DEL CIERRE -->
+  <section class="card">
+    <h2>1 · Datos del cierre</h2>
+    <div class="grid">
+      <div><label for="fecha">Fecha</label><input type="date" id="fecha"></div>
+      <div><label for="turno">Turno</label>
+        <select id="turno"><option>Día completo</option><option>Mañana</option><option>Tarde</option></select>
+      </div>
+      <div><label for="responsable">Responsable</label><input id="responsable" placeholder="Nombre"></div>
+      <div><label for="ncierre">Número de cierre del POS</label><input id="ncierre" inputmode="numeric" placeholder="Ej. 197"></div>
+    </div>
+  </section>
+
+  <!-- 2. VENTAS (POS) -->
+  <section class="card">
+    <h2>2 · Ventas <span style="font-weight:normal;text-transform:none;color:var(--muted)">(del POS)</span></h2>
+    <div class="grid">
+      <div><label for="brutas">Ventas brutas</label><div class="money"><span>$</span><input id="brutas" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00"></div></div>
+      <div><label for="descuentos">Descuentos</label><div class="money"><span>$</span><input id="descuentos" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00"></div></div>
+      <div><label for="efectivo">Efectivo</label><div class="money"><span>$</span><input id="efectivo" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00"></div></div>
+      <div><label for="tarjeta">Tarjeta</label><div class="money"><span>$</span><input id="tarjeta" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00"></div></div>
+    </div>
+    <table class="res" style="margin-top:12px">
+      <tr class="total"><td>Ventas netas (brutas − descuentos)</td><td id="v-netas">$0.00</td></tr>
+    </table>
+    <div id="cuadre" class="check" style="display:none"></div>
+  </section>
+
+  <!-- 3. PAGOS / SALIDAS -->
+  <section class="card">
+    <h2>3 · Pagos / salidas (caja chica)</h2>
+    <div class="rows-head"><div>Concepto</div><div>Monto</div><div>Pagado con</div><div style="text-align:center">Factura</div><div></div></div>
+    <div class="rows" id="rows-caja"></div>
+    <button class="add" type="button" onclick="addRow()">+ Agregar gasto</button>
+    <div class="subtotal"><span>Total caja chica</span><span id="tot-caja">$0.00</span></div>
+    <table class="res" style="margin-top:6px">
+      <tr class="sub"><td>Pagado en efectivo (sale del cajón)</td><td id="pm-ef">$0.00</td></tr>
+      <tr class="sub"><td>Pagado con tarjeta</td><td id="pm-tj">$0.00</td></tr>
+      <tr class="sub"><td>Pagado con transferencia</td><td id="pm-tr">$0.00</td></tr>
+    </table>
+  </section>
+
+  <!-- 4. CAJÓN DE EFECTIVO -->
+  <section class="card">
+    <h2>4 · Cajón de efectivo</h2>
+    <div class="grid">
+      <div><label for="fondo">Fondo de caja anterior (POS)</label><div class="money"><span>$</span><input id="fondo" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00"></div></div>
+      <div><label for="real">Efectivo real contado</label><div class="money"><span>$</span><input id="real" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00"></div></div>
+    </div>
+    <table class="res" style="margin-top:12px">
+      <tr class="sub"><td>Fondo de caja anterior</td><td id="e-fondo">$0.00</td></tr>
+      <tr class="sub"><td>+ Cobros en efectivo</td><td id="e-ef">$0.00</td></tr>
+      <tr class="sub"><td>− Pagos/salidas en efectivo</td><td id="e-sal">$0.00</td></tr>
+      <tr><td>Efectivo teórico en caja</td><td id="e-teo">$0.00</td></tr>
+      <tr><td>Efectivo real contado</td><td id="e-real">$0.00</td></tr>
+      <tr class="total"><td>Descuadre</td><td id="e-desc">$0.00</td></tr>
+    </table>
+    <div style="margin-top:14px"><label for="queda">Efectivo que se queda en caja (fondo para el siguiente turno)</label><div class="money"><span>$</span><input id="queda" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00"></div></div>
+    <table class="res" style="margin-top:12px">
+      <tr class="total"><td>Efectivo que me llevo (real − se queda)</td><td id="e-retiro">$0.00</td></tr>
+    </table>
+  </section>
+
+  <!-- 5. TERMINAL EVO -->
+  <section class="card">
+    <h2>5 · Terminal EVO Banamex</h2>
+    <p class="hint" style="margin-top:0">Copia los totales del reporte de cierre de la terminal tal como vienen.</p>
+    <div class="grid3">
+      <div><label for="credito">Crédito</label><div class="money"><span>$</span><input id="credito" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00"></div></div>
+      <div><label for="debito">Débito</label><div class="money"><span>$</span><input id="debito" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00"></div></div>
+      <div><label for="propinas">Propinas</label><div class="money"><span>$</span><input id="propinas" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00"></div></div>
+    </div>
+    <div id="t-detect" class="check" style="display:none"></div>
+    <table class="res" style="margin-top:12px">
+      <tr><td>Comisión crédito 2.4%</td><td id="c-cred">$0.00</td></tr>
+      <tr><td>Comisión débito 1.6%</td><td id="c-deb">$0.00</td></tr>
+      <tr class="sub"><td>Comisión sobre propinas</td><td id="c-prop">$0.00</td></tr>
+      <tr class="sub"><td>IVA de la comisión 16%</td><td id="c-iva">$0.00</td></tr>
+      <tr class="total"><td>Total comisión bancaria</td><td id="c-total">$0.00</td></tr>
+      <tr class="sub"><td>Total cobrado en terminal (venta + propina)</td><td id="c-cobrado">$0.00</td></tr>
+      <tr class="sub"><td>Depósito neto esperado del banco</td><td id="c-neto">$0.00</td></tr>
+      <tr><td>Propinas con tarjeta por repartir</td><td id="c-proprep">$0.00</td></tr>
+    </table>
+    <label class="fac" style="justify-content:flex-start;margin-top:10px;font-size:13px"><input type="checkbox" id="iva-com" checked> Sumar IVA (16%) a la comisión</label>
+  </section>
+
+  <!-- 6. IMPUESTOS -->
+  <section class="card">
+    <h2>6 · Impuestos sobre ventas con tarjeta</h2>
+    <label for="tasa">Tasa ISR RESICO (según ingreso mensual del negocio)</label>
+    <select id="tasa">
+      <option value="0.01">1.00% · hasta $25,000 al mes</option>
+      <option value="0.011">1.10% · hasta $50,000 al mes</option>
+      <option value="0.015">1.50% · hasta $83,333.33 al mes</option>
+      <option value="0.02" selected>2.00% · hasta $208,333.33 al mes</option>
+      <option value="0.025">2.50% · hasta $3,500,000 al mes</option>
+    </select>
+    <table class="res" style="margin-top:12px">
+      <tr><td>Ventas con tarjeta del POS (IVA incluido, sin propinas)</td><td id="t-tarjeta">$0.00</td></tr>
+      <tr class="sub"><td>Base sin IVA (tarjeta ÷ 1.16)</td><td id="t-base">$0.00</td></tr>
+      <tr><td>IVA trasladado 16%</td><td id="t-iva">$0.00</td></tr>
+      <tr><td>ISR RESICO (<span id="t-tasa-lbl">2.00%</span> de la base)</td><td id="t-isr">$0.00</td></tr>
+      <tr class="total"><td>Total a apartar para impuestos</td><td id="t-total">$0.00</td></tr>
+    </table>
+    <div class="tax-box">
+      <table class="res">
+        <tr class="sub"><td>IVA acreditable de gastos con factura</td><td id="t-acred">$0.00</td></tr>
+        <tr><td>IVA neto estimado (trasladado − acreditable)</td><td id="t-ivaneto">$0.00</td></tr>
+      </table>
+    </div>
+    <p class="hint">Estimación diaria para apartar el dinero. El pago real se hace en la declaración mensual (día 17 del mes siguiente) sobre el total de ingresos cobrados del mes.</p>
+  </section>
+
+  <!-- 7. RESUMEN -->
+  <section class="card">
+    <h2>7 · Resumen del cierre</h2>
+    <table class="res">
+      <tr><td>Ventas netas</td><td id="r-ventas">$0.00</td></tr>
+      <tr><td>− Caja chica</td><td id="r-caja">$0.00</td></tr>
+      <tr><td>− Comisión bancaria</td><td id="r-com">$0.00</td></tr>
+      <tr><td>− Impuestos (tarjeta)</td><td id="r-imp">$0.00</td></tr>
+      <tr class="total"><td>Resultado del turno</td><td id="r-res">$0.00</td></tr>
+      <tr class="sub"><td>Descuadre de efectivo</td><td id="r-desc">$0.00</td></tr>
+      <tr class="sub"><td>Efectivo que se queda en caja</td><td id="r-queda">$0.00</td></tr>
+      <tr class="sub"><td>Efectivo que me llevo</td><td id="r-retiro">$0.00</td></tr>
+      <tr class="sub"><td>Propinas con tarjeta por repartir</td><td id="r-prop">$0.00</td></tr>
+    </table>
+    <label for="notas" style="margin-top:14px">Notas</label>
+    <textarea id="notas" rows="2" placeholder="Observaciones del turno (opcional)"></textarea>
+  </section>
+
+</main>
+
+<div class="bar">
+  <button class="btn-sec" type="button" onclick="limpiar()">Limpiar</button>
+  <button class="btn-pri" type="button" id="btn-enviar" onclick="abrirConfirmacion()">Enviar</button>
+</div>
+
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <h3>Confirmar cierre</h3>
+    <div id="modal-body"></div>
+    <div class="actions">
+      <button class="btn-sec" style="border:1px solid var(--line)" onclick="cerrarModal()">Corregir</button>
+      <button class="btn-pri" id="btn-confirmar" onclick="enviar()">Enviar a Sheets</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ====== CONFIGURACIÓN ====== */
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxL30JSC_l8c71UmKhkZosER2l7lF3HPE07dfvamHbQMLywDgBNaJXcfuj5qhKewH3jgg/exec';   // termina en /exec
+const TASA_CREDITO = 0.024;   // Banamex crédito 2.4%
+const TASA_DEBITO  = 0.016;   // Banamex débito 1.6%
+
+/* ====== UTILIDADES ====== */
+const $ = id => document.getElementById(id);
+const num = v => { const n = parseFloat(String(v).replace(/,/g,'')); return isNaN(n) ? 0 : n; };
+const r2 = n => Math.round(n * 100) / 100;
+const fmt = n => (n < 0 ? '-$' : '$') + Math.abs(n).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
+const set = (id, v) => { $(id).textContent = fmt(v); };
+function hoy(){ const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,10); }
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),3200); }
+function aviso(id, tipo, texto){ const c=$(id); if(!texto){ c.style.display='none'; return; } c.style.display='block'; c.className='check '+tipo; c.textContent=texto; }
+
+/* ====== FILAS DE CAJA CHICA ====== */
+function addRow(){
+  const div = document.createElement('div');
+  div.className = 'row';
+  div.innerHTML = `
+    <input class="g-concepto" placeholder="Ej. tortillas, leche, agua">
+    <div class="money"><span>$</span><input class="g-monto" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00"></div>
+    <select class="g-metodo"><option>Efectivo</option><option>Tarjeta</option><option>Transferencia</option></select>
+    <label class="fac"><input type="checkbox" class="g-fac"> Factura</label>
+    <button class="del" type="button" title="Quitar">×</button>`;
+  div.querySelector('.del').onclick = () => { div.remove(); calc(); };
+  div.querySelectorAll('input').forEach(i => i.addEventListener('input', calc));
+  div.querySelector('.g-metodo').addEventListener('change', calc);
+  $('rows-caja').appendChild(div);
+  calc();
+}
+function leerGastos(){
+  return [...$('rows-caja').querySelectorAll('.row')].map(r => ({
+    concepto: r.querySelector('.g-concepto').value.trim(),
+    monto: r2(num(r.querySelector('.g-monto').value)),
+    metodo: r.querySelector('.g-metodo').value,
+    factura: r.querySelector('.g-fac').checked
+  })).filter(g => g.concepto || g.monto);
+}
+
+/* ====== CÁLCULOS ====== */
+function calc(){
+  const v = id => num($(id).value);
+  const brutas = v('brutas'), descuentos = v('descuentos'), efectivo = v('efectivo'), tarjeta = v('tarjeta');
+  const netas = r2(brutas - descuentos);
+  set('v-netas', netas);
+  const dif = r2(netas - efectivo - tarjeta);
+  if (!(brutas || efectivo || tarjeta)) aviso('cuadre');
+  else if (Math.abs(dif) < 0.01) aviso('cuadre','ok','Cuadra: efectivo + tarjeta = ventas netas.');
+  else aviso('cuadre','warn',`Diferencia de ${fmt(dif)} entre ventas netas y efectivo + tarjeta.`);
+
+  // Caja chica
+  const caja = leerGastos();
+  const totCaja = r2(caja.reduce((s,g)=>s+g.monto,0));
+  const porMetodo = m => r2(caja.filter(g=>g.metodo===m).reduce((s,g)=>s+g.monto,0));
+  const cajaEf = porMetodo('Efectivo'), cajaTj = porMetodo('Tarjeta'), cajaTr = porMetodo('Transferencia');
+  set('tot-caja', totCaja); set('pm-ef', cajaEf); set('pm-tj', cajaTj); set('pm-tr', cajaTr);
+
+  // Cajón de efectivo
+  const fondo = v('fondo'), real = v('real'), queda = v('queda');
+  const teorico = r2(fondo + efectivo - cajaEf);
+  const descuadre = r2(real - teorico);
+  const retiro = r2(real - queda);
+  set('e-fondo', fondo); set('e-ef', efectivo); set('e-sal', cajaEf); set('e-teo', teorico);
+  set('e-real', real); set('e-desc', descuadre); set('e-retiro', retiro);
+
+  // Terminal EVO
+  const credito = v('credito'), debito = v('debito'), propinas = v('propinas');
+  const sumaTerm = r2(credito + debito);
+  // ¿Crédito + débito ya incluyen la propina? Se detecta comparando contra la tarjeta del POS.
+  let incluyePropina = false;
+  if (propinas > 0 && sumaTerm > 0) {
+    incluyePropina = Math.abs(sumaTerm - (tarjeta + propinas)) <= Math.abs(sumaTerm - tarjeta);
+  }
+  const comCred = r2(credito * TASA_CREDITO);
+  const comDeb = r2(debito * TASA_DEBITO);
+  const tasaProm = sumaTerm > 0 ? (credito*TASA_CREDITO + debito*TASA_DEBITO) / sumaTerm : TASA_CREDITO;
+  const comProp = incluyePropina ? 0 : r2(propinas * tasaProm);
+  const comSinIva = r2(comCred + comDeb + comProp);
+  const ivaCom = $('iva-com').checked ? r2(comSinIva * 0.16) : 0;
+  const comTotal = r2(comSinIva + ivaCom);
+  const cobrado = incluyePropina ? sumaTerm : r2(sumaTerm + propinas);
+  const depositoNeto = r2(cobrado - comTotal);
+  const ventaTerm = r2(cobrado - propinas);
+  set('c-cred', comCred); set('c-deb', comDeb); set('c-prop', comProp); set('c-iva', ivaCom);
+  set('c-total', comTotal); set('c-cobrado', cobrado); set('c-neto', depositoNeto); set('c-proprep', propinas);
+  if (!(credito || debito)) aviso('t-detect');
+  else {
+    const difT = r2(ventaTerm - tarjeta);
+    const nota = propinas > 0 ? (incluyePropina ? 'Crédito + débito ya incluyen la propina. ' : 'La propina viene aparte de crédito + débito. ') : '';
+    if (Math.abs(difT) < 0.01) aviso('t-detect','ok', nota + 'Venta en terminal = tarjeta del POS.');
+    else aviso('t-detect','warn', nota + `Venta en terminal (${fmt(ventaTerm)}) vs tarjeta del POS (${fmt(tarjeta)}): diferencia de ${fmt(difT)}.`);
+  }
+
+  // Impuestos (RESICO PF) sobre la tarjeta del POS (ya viene sin propinas)
+  const tasa = v('tasa');
+  const base = r2(tarjeta / 1.16);
+  const iva = r2(tarjeta - base);
+  const isr = r2(base * tasa);
+  const totImp = r2(iva + isr);
+  const acred = r2(caja.filter(g=>g.factura).reduce((s,g)=>s + g.monto - g.monto/1.16, 0));
+  const ivaNeto = r2(Math.max(iva - acred, 0));
+  set('t-tarjeta', tarjeta); set('t-base', base); set('t-iva', iva); set('t-isr', isr);
+  $('t-tasa-lbl').textContent = (tasa*100).toFixed(2)+'%';
+  set('t-total', totImp); set('t-acred', acred); set('t-ivaneto', ivaNeto);
+
+  // Resumen
+  const resultado = r2(netas - totCaja - comTotal - totImp);
+  set('r-ventas', netas); set('r-caja', totCaja); set('r-com', comTotal); set('r-imp', totImp); set('r-res', resultado);
+  set('r-desc', descuadre); set('r-queda', queda); set('r-retiro', retiro); set('r-prop', propinas);
+
+  return { brutas, descuentos, netas, efectivo, tarjeta, dif, caja, totCaja, cajaEf, cajaTj, cajaTr,
+    fondo, teorico, real, descuadre, queda, retiro,
+    credito, debito, propinas, incluyePropina, comCred, comDeb, comProp, ivaCom, comTotal, cobrado, depositoNeto,
+    tasa, base, iva, isr, totImp, acred, ivaNeto, resultado };
+}
+
+/* ====== ENVÍO ====== */
+function abrirConfirmacion(){
+  const d = calc();
+  if (!$('fecha').value) return toast('Falta la fecha.');
+  if (!$('responsable').value.trim()) return toast('Escribe el nombre del responsable.');
+  if (!d.brutas) return toast('Captura las ventas brutas del POS.');
+  if (d.caja.some(g => !g.concepto || !g.monto)) return toast('Cada gasto necesita concepto y monto.');
+  $('modal-body').innerHTML = `
+    <table class="res">
+      <tr><td>Fecha / turno</td><td>${$('fecha').value} · ${$('turno').value}</td></tr>
+      <tr><td>Responsable · cierre POS</td><td>${escapeHtml($('responsable').value.trim())} · ${escapeHtml($('ncierre').value.trim() || '—')}</td></tr>
+      <tr><td>Ventas netas</td><td>${fmt(d.netas)}</td></tr>
+      <tr><td>Efectivo / Tarjeta</td><td>${fmt(d.efectivo)} / ${fmt(d.tarjeta)}</td></tr>
+      <tr><td>Caja chica (${d.caja.length})</td><td>${fmt(d.totCaja)}</td></tr>
+      <tr><td>Descuadre de efectivo</td><td>${fmt(d.descuadre)}</td></tr>
+      <tr><td>Se queda en caja / me llevo</td><td>${fmt(d.queda)} / ${fmt(d.retiro)}</td></tr>
+      <tr><td>Propinas con tarjeta</td><td>${fmt(d.propinas)}</td></tr>
+      <tr><td>Comisión bancaria</td><td>${fmt(d.comTotal)}</td></tr>
+      <tr><td>Impuestos tarjeta (IVA + ISR)</td><td>${fmt(d.totImp)}</td></tr>
+      <tr class="total"><td>Resultado del turno</td><td>${fmt(d.resultado)}</td></tr>
+    </table>`;
+  $('modal').classList.add('show');
+}
+function cerrarModal(){ $('modal').classList.remove('show'); }
+function escapeHtml(s){ return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+async function enviar(){
+  const d = calc();
+  const payload = Object.assign({
+    folio: 'SX-' + Date.now().toString(36).toUpperCase(),
+    fecha: $('fecha').value,
+    turno: $('turno').value,
+    responsable: $('responsable').value.trim(),
+    ncierre: $('ncierre').value.trim(),
+    notas: $('notas').value.trim()
+  }, d);
+  if (SCRIPT_URL.startsWith('PEGA')) { cerrarModal(); return toast('Falta configurar SCRIPT_URL en el archivo.'); }
+  const btn = $('btn-confirmar'); btn.disabled = true; btn.textContent = 'Enviando…';
+  try{
+    await fetch(SCRIPT_URL, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(payload) });
+    cerrarModal();
+    toast('Cierre enviado ✓ Folio ' + payload.folio);
+    limpiar(true);
+  }catch(e){
+    toast('No se pudo enviar. Revisa tu conexión e intenta de nuevo.');
+  }finally{
+    btn.disabled = false; btn.textContent = 'Enviar a Sheets';
+  }
+}
+
+const CAMPOS = ['brutas','descuentos','efectivo','tarjeta','fondo','real','queda','credito','debito','propinas','ncierre','notas'];
+function limpiar(silencioso){
+  if (!silencioso && !confirmarLimpiar()) return;
+  CAMPOS.forEach(id => $(id).value='');
+  $('rows-caja').innerHTML='';
+  addRow();
+  $('fecha').value = hoy();
+  calc();
+}
+let limpiarArmado = false;
+function confirmarLimpiar(){
+  if (limpiarArmado) { limpiarArmado=false; return true; }
+  limpiarArmado = true; toast('Toca "Limpiar" otra vez para borrar todo.');
+  setTimeout(()=>limpiarArmado=false, 3000); return false;
+}
+
+/* ====== INICIO ====== */
+CAMPOS.concat(['tasa']).forEach(id => $(id).addEventListener('input', calc));
+$('tasa').addEventListener('change', calc);
+$('iva-com').addEventListener('change', calc);
+$('fecha').value = hoy();
+addRow();
+calc();
+</script>
+</body>
+</html>
